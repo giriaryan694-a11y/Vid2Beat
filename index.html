@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vid2Beat – Audio Extractor</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-dark: #0f0f0f;
+    --text-dark: #00ff88;
+    --btn-dark: #00ff88;
+    --btn-dark-hover: #00cc66;
+    
+    --bg-light: #f5f5f5;
+    --text-light: #007f00;
+    --btn-light: #007f00;
+    --btn-light-hover: #005500;
+  }
+  body {
+    margin: 0;
+    font-family: 'Share Tech Mono', monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    text-align: center;
+    background-color: var(--bg-dark);
+    color: var(--text-dark);
+    transition: all 0.3s;
+  }
+  body.light {
+    background-color: var(--bg-light);
+    color: var(--text-light);
+  }
+  h1 {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+  }
+  input[type="file"] {
+    margin: 1rem 0;
+  }
+  button {
+    border: none;
+    padding: 0.7rem 1.5rem;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 10px;
+    transition: 0.3s;
+  }
+  #extractBtn {
+    background-color: var(--btn-dark);
+    color: #000;
+  }
+  body.light #extractBtn {
+    background-color: var(--btn-light);
+    color: #fff;
+  }
+  #extractBtn:hover {
+    background-color: var(--btn-dark-hover);
+  }
+  body.light #extractBtn:hover {
+    background-color: var(--btn-light-hover);
+  }
+  #themeBtn {
+    margin-top: 1rem;
+    background-color: #888;
+    color: #fff;
+  }
+  #themeBtn:hover {
+    background-color: #555;
+  }
+  a {
+    display: block;
+    margin-top: 1rem;
+    text-decoration: underline;
+  }
+  footer {
+    position: absolute;
+    bottom: 10px;
+    font-size: 0.9rem;
+  }
+</style>
+</head>
+<body>
+
+<h1>🎧 Vid2Beat – Audio Extractor</h1>
+
+<input type="file" id="videoFile" accept="video/*">
+<br>
+<button id="extractBtn">Extract Audio</button>
+<br>
+<a id="downloadLink" style="display:none;">Download MP3</a>
+<br>
+<button id="themeBtn">Toggle Dark/Light Theme</button>
+
+<footer>Made by Aryan</footer>
+
+<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.2/dist/ffmpeg.min.js"></script>
+<script>
+  const { createFFmpeg, fetchFile } = FFmpeg;
+  const ffmpeg = createFFmpeg({ log: true });
+
+  const extractBtn = document.getElementById('extractBtn');
+  const videoFileInput = document.getElementById('videoFile');
+  const downloadLink = document.getElementById('downloadLink');
+  const themeBtn = document.getElementById('themeBtn');
+
+  let videoFile;
+
+  // --- Theme Handling ---
+  function setTheme(theme) {
+    if(theme === 'light') document.body.classList.add('light');
+    else document.body.classList.remove('light');
+    document.cookie = "theme="+theme+";path=/;max-age=31536000"; // 1 year
+  }
+
+  // Load theme from cookie
+  const cookieTheme = document.cookie.split('; ').find(row => row.startsWith('theme='));
+  if(cookieTheme) setTheme(cookieTheme.split('=')[1]);
+  else setTheme('dark');
+
+  themeBtn.addEventListener('click', () => {
+    const newTheme = document.body.classList.contains('light') ? 'dark' : 'light';
+    setTheme(newTheme);
+  });
+
+  // --- Video handling ---
+  videoFileInput.addEventListener('change', (e) => {
+    videoFile = e.target.files[0];
+  });
+
+  extractBtn.addEventListener('click', async () => {
+    if (!videoFile) return alert('Please select a video file first!');
+    extractBtn.disabled = true;
+    extractBtn.textContent = 'Loading FFmpeg...';
+    
+    if (!ffmpeg.isLoaded()) await ffmpeg.load();
+
+    extractBtn.textContent = 'Extracting Audio...';
+    ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(videoFile));
+    await ffmpeg.run('-i', 'input.mp4', '-q:a', '0', '-map', 'a', 'output.mp3');
+    const data = ffmpeg.FS('readFile', 'output.mp3');
+    const audioBlob = new Blob([data.buffer], { type: 'audio/mp3' });
+    const url = URL.createObjectURL(audioBlob);
+
+    downloadLink.href = url;
+    downloadLink.download = 'output.mp3';
+    downloadLink.style.display = 'block';
+    downloadLink.textContent = 'Download Extracted Audio';
+
+    extractBtn.disabled = false;
+    extractBtn.textContent = 'Extract Audio';
+  });
+</script>
+
+</body>
+</html>
