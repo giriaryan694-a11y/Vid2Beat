@@ -17,30 +17,34 @@
     --btn-light: #007f00;
     --btn-light-hover: #005500;
   }
+
   body {
     margin: 0;
     font-family: 'Share Tech Mono', monospace;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
     min-height: 100vh;
     text-align: center;
     background-color: var(--bg-dark);
     color: var(--text-dark);
     transition: all 0.3s;
+    padding: 20px;
   }
   body.light {
     background-color: var(--bg-light);
     color: var(--text-light);
   }
+
   h1 {
     font-size: 2.5rem;
     margin-bottom: 1rem;
   }
+
   input[type="file"] {
     margin: 1rem 0;
   }
+
   button {
     border: none;
     padding: 0.7rem 1.5rem;
@@ -48,7 +52,9 @@
     cursor: pointer;
     border-radius: 10px;
     transition: 0.3s;
+    margin-top: 0.5rem;
   }
+
   #extractBtn {
     background-color: var(--btn-dark);
     color: #000;
@@ -63,24 +69,67 @@
   body.light #extractBtn:hover {
     background-color: var(--btn-light-hover);
   }
+
   #themeBtn {
-    margin-top: 1rem;
     background-color: #888;
     color: #fff;
   }
   #themeBtn:hover {
     background-color: #555;
   }
+
   a {
     display: block;
-    margin-top: 1rem;
+    margin-top: 0.5rem;
     text-decoration: underline;
   }
+
   footer {
-    position: absolute;
-    bottom: 10px;
+    margin-top: 20px;
     font-size: 0.9rem;
   }
+
+  #progressContainer {
+    width: 80%;
+    max-width: 400px;
+    height: 20px;
+    border: 1px solid #00ff88;
+    border-radius: 10px;
+    margin-top: 1rem;
+    overflow: hidden;
+    display: none;
+  }
+  #progressBar {
+    height: 100%;
+    width: 0%;
+    background-color: #00ff88;
+    transition: width 0.1s;
+  }
+  body.light #progressContainer { border-color: #007f00; }
+  body.light #progressBar { background-color: #007f00; }
+
+  audio {
+    margin-top: 1rem;
+    outline: none;
+    width: 80%;
+    max-width: 400px;
+  }
+
+  #terminal {
+    width: 80%;
+    max-width: 500px;
+    height: 150px;
+    background-color: #111;
+    color: #0f0;
+    font-family: monospace;
+    font-size: 12px;
+    padding: 10px;
+    overflow-y: scroll;
+    margin-top: 1rem;
+    border-radius: 5px;
+    white-space: pre-wrap;
+  }
+  body.light #terminal { background-color: #ddd; color: #007f00; }
 </style>
 </head>
 <body>
@@ -90,10 +139,17 @@
 <input type="file" id="videoFile" accept="video/*">
 <br>
 <button id="extractBtn">Extract Audio</button>
-<br>
-<a id="downloadLink" style="display:none;">Download MP3</a>
-<br>
 <button id="themeBtn">Toggle Dark/Light Theme</button>
+<br>
+
+<div id="progressContainer">
+  <div id="progressBar"></div>
+</div>
+
+<a id="downloadLink" style="display:none;">Download MP3</a>
+<audio id="audioPlayer" controls style="display:none;"></audio>
+
+<div id="terminal"></div>
 
 <footer>Made by Aryan</footer>
 
@@ -106,17 +162,27 @@
   const videoFileInput = document.getElementById('videoFile');
   const downloadLink = document.getElementById('downloadLink');
   const themeBtn = document.getElementById('themeBtn');
+  const progressContainer = document.getElementById('progressContainer');
+  const progressBar = document.getElementById('progressBar');
+  const audioPlayer = document.getElementById('audioPlayer');
+  const terminal = document.getElementById('terminal');
 
   let videoFile;
+
+  // --- Terminal logging ---
+  function logTerminal(msg) {
+    terminal.textContent += msg + '\n';
+    terminal.scrollTop = terminal.scrollHeight;
+  }
 
   // --- Theme Handling ---
   function setTheme(theme) {
     if(theme === 'light') document.body.classList.add('light');
     else document.body.classList.remove('light');
-    document.cookie = "theme="+theme+";path=/;max-age=31536000"; // 1 year
+    document.cookie = "theme="+theme+";path=/;max-age=31536000";
+    logTerminal(`Theme set to ${theme}`);
   }
 
-  // Load theme from cookie
   const cookieTheme = document.cookie.split('; ').find(row => row.startsWith('theme='));
   if(cookieTheme) setTheme(cookieTheme.split('=')[1]);
   else setTheme('dark');
@@ -126,34 +192,68 @@
     setTheme(newTheme);
   });
 
-  // --- Video handling ---
   videoFileInput.addEventListener('change', (e) => {
     videoFile = e.target.files[0];
+    audioPlayer.style.display = 'none';
+    downloadLink.style.display = 'none';
+    progressContainer.style.display = 'none';
+    progressBar.style.width = '0%';
+    logTerminal(`Selected file: ${videoFile.name}`);
   });
 
   extractBtn.addEventListener('click', async () => {
     if (!videoFile) return alert('Please select a video file first!');
     extractBtn.disabled = true;
     extractBtn.textContent = 'Loading FFmpeg...';
-    
-    if (!ffmpeg.isLoaded()) await ffmpeg.load();
+    downloadLink.style.display = 'none';
+    audioPlayer.style.display = 'none';
+    progressContainer.style.display = 'block';
+    progressBar.style.width = '0%';
+    terminal.textContent = '';
 
-    extractBtn.textContent = 'Extracting Audio...';
-    ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(videoFile));
-    await ffmpeg.run('-i', 'input.mp4', '-q:a', '0', '-map', 'a', 'output.mp3');
-    const data = ffmpeg.FS('readFile', 'output.mp3');
-    const audioBlob = new Blob([data.buffer], { type: 'audio/mp3' });
-    const url = URL.createObjectURL(audioBlob);
+    try {
+      if (!ffmpeg.isLoaded()) {
+        logTerminal('Loading FFmpeg...');
+        await ffmpeg.load();
+        logTerminal('FFmpeg loaded successfully.');
+      }
 
-    downloadLink.href = url;
-    downloadLink.download = 'output.mp3';
-    downloadLink.style.display = 'block';
-    downloadLink.textContent = 'Download Extracted Audio';
+      ffmpeg.setProgress(({ ratio }) => {
+        const percent = Math.min(100, Math.round(ratio * 100));
+        progressBar.style.width = percent + '%';
+      });
 
-    extractBtn.disabled = false;
-    extractBtn.textContent = 'Extract Audio';
+      ffmpeg.setLogger(({ type, message }) => {
+        logTerminal(`[${type}] ${message}`);
+      });
+
+      extractBtn.textContent = 'Extracting Audio...';
+      ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(videoFile));
+      await ffmpeg.run('-i', 'input.mp4', '-q:a', '0', '-map', 'a', 'output.mp3');
+
+      const data = ffmpeg.FS('readFile', 'output.mp3');
+      const audioBlob = new Blob([data.buffer], { type: 'audio/mp3' });
+      const url = URL.createObjectURL(audioBlob);
+
+      downloadLink.href = url;
+      downloadLink.download = 'output.mp3';
+      downloadLink.style.display = 'block';
+      downloadLink.textContent = 'Download Extracted Audio';
+
+      audioPlayer.src = url;
+      audioPlayer.style.display = 'block';
+
+      progressBar.style.width = '100%';
+      logTerminal('Extraction completed successfully!');
+    } catch (err) {
+      logTerminal(`Error: ${err.message}`);
+      alert('Extraction failed! Check terminal for details.');
+    } finally {
+      extractBtn.disabled = false;
+      extractBtn.textContent = 'Extract Audio';
+    }
   });
 </script>
 
 </body>
-</html>
+  </html>
