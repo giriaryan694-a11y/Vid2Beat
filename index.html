@@ -1,126 +1,235 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
+<meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Vid2Beat – Audio Extractor</title>
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
-  :root{
-    --bg-dark:#0f0f0f; --text-dark:#00ff88;
-    --bg-light:#f5f5f5; --text-light:#007f00;
-    --accent-dark:#00ff88; --accent-light:#007f00;
-  }
-  body{
-    font-family:'Share Tech Mono', monospace;
-    margin:0;padding:18px;
-    display:flex;flex-direction:column;align-items:center;
-    background:var(--bg-dark);color:var(--text-dark);
-  }
-  body.light{background:var(--bg-light);color:var(--text-light);}
-  h1{margin:0 0 12px 0;font-size:1.6rem;}
-  button{padding:8px 14px;border-radius:8px;border:none;cursor:pointer;font-weight:700;margin:4px;}
-  #dropArea{width:80%;max-width:720px;height:120px;border:2px dashed rgba(0,255,136,0.18);
-    display:flex;align-items:center;justify-content:center;padding:12px;text-align:center;transition:all .15s;}
-  #dropArea.drag{border-color:var(--accent-dark); transform:scale(1.01);}
-  #progressContainer{width:80%;max-width:720px;height:16px;border-radius:10px;border:1px solid rgba(0,255,136,0.15);overflow:hidden;display:none;}
-  #progressBar{height:100%;width:0%;background:var(--accent-dark);transition:width .12s linear;}
-  body.light #progressBar{background:var(--accent-light);}
-  audio{width:80%;max-width:720px;display:none;margin-top:6px;}
-  #downloadLink{display:none;margin-top:6px;}
-  #terminal{width:80%;max-width:720px;height:200px;border-radius:8px;padding:8px;background:#111;color:#0f0;overflow:auto;font-size:12px;white-space:pre-wrap;margin-top:6px;}
-  body.light #terminal{background:#eee;color:#007f00;}
-  footer{margin-top:10px;font-size:0.9rem;opacity:0.9;}
+  :root{--bg-dark:#0f0f0f;--text-dark:#00ff88;--accent:#00ff88;--bg-light:#f5f5f5;--text-light:#007f00}
+  *{box-sizing:border-box}
+  body{font-family:'Share Tech Mono',monospace;margin:0;padding:18px;background:var(--bg-dark);color:var(--text-dark);display:flex;flex-direction:column;align-items:center;gap:12px}
+  body.light{background:var(--bg-light);color:var(--text-light)}
+  header{width:100%;max-width:980px;display:flex;align-items:center}
+  h1{margin:0;font-size:1.6rem}
+  .muted{margin-left:auto;opacity:.9}
+  #controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  button{padding:8px 14px;border-radius:8px;border:none;cursor:pointer;font-weight:700}
+  #loadBtn{background:var(--accent);color:#001}
+  #chooseBtn{background:#666;color:#fff}
+  #extractBtn{background:#ffd966;color:#000}
+  #themeBtn{background:#888;color:#fff}
+  #dropArea{width:80%;max-width:720px;height:120px;border:2px dashed rgba(0,255,136,0.18);border-radius:10px;display:flex;align-items:center;justify-content:center;padding:12px;text-align:center;transition:all .12s}
+  #dropArea.drag{border-color:var(--accent);transform:scale(1.01)}
+  #progressContainer{width:80%;max-width:720px;height:16px;border-radius:10px;border:1px solid rgba(0,255,136,0.12);overflow:hidden;display:none}
+  #progressBar{height:100%;width:0%;background:var(--accent);transition:width .12s linear}
+  audio{width:80%;max-width:720px;display:none;margin-top:6px}
+  #downloadLink{display:none;margin-top:6px}
+  #terminal{width:80%;max-width:720px;height:200px;border-radius:8px;padding:8px;background:#111;color:#0f0;overflow:auto;font-size:12px;white-space:pre-wrap;margin-top:6px}
+  body.light #terminal{background:#eee;color:#007f00}
+  footer{margin-top:10px;font-size:.9rem;opacity:.9}
+  input[type="file"]{display:none}
+  @media (max-width:520px){#dropArea{height:100px}#terminal{height:140px}}
 </style>
 </head>
 <body>
 
-<h1>🎧 Vid2Beat – Audio Extractor</h1>
+<header>
+  <h1>🎧 Vid2Beat – Audio Extractor</h1>
+  <div class="muted">Made by Aryan</div>
+</header>
 
-<div>
+<div id="controls">
+  <button id="loadBtn">Load Engine</button>
+  <label><button id="chooseBtn">Choose Video</button></label>
+  <input id="fileInput" type="file" accept="video/*">
+  <button id="extractBtn" disabled>Extract Audio</button>
   <button id="themeBtn">Toggle Theme</button>
 </div>
 
-<div id="dropArea">Drop a video here or click to choose</div>
-<input type="file" id="fileInput" accept="video/*" style="display:none">
+<div id="dropArea">Drop a video file here or click <strong>Choose Video</strong></div>
+<div class="meta">Supported: mp4, mkv, mov, webm — extraction in-browser</div>
 
 <div id="progressContainer"><div id="progressBar"></div></div>
-<a id="downloadLink" href="#" download="output.mp3">Download MP3</a>
+
+<a id="downloadLink" href="#" download="output.mp3">Download Extracted MP3</a>
 <audio id="audioPlayer" controls></audio>
+
 <div id="terminal" aria-live="polite"></div>
-<footer>Made by Aryan</footer>
+<footer class="muted">Tip: check the terminal for load/progress/errors</footer>
 
-<script type="module">
-import { createFFmpeg, fetchFile } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.2/dist/ffmpeg.min.mjs';
+<!-- non-module ffmpeg build (global `FFmpeg`) -->
+<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.2/dist/ffmpeg.min.js" crossorigin="anonymous"></script>
 
-const ffmpeg = createFFmpeg({ log: true });
+<script>
+(function(){
+  // elements
+  const loadBtn = document.getElementById('loadBtn');
+  const chooseBtn = document.getElementById('chooseBtn');
+  const fileInput = document.getElementById('fileInput');
+  const extractBtn = document.getElementById('extractBtn');
+  const themeBtn = document.getElementById('themeBtn');
+  const dropArea = document.getElementById('dropArea');
+  const progressContainer = document.getElementById('progressContainer');
+  const progressBar = document.getElementById('progressBar');
+  const audioPlayer = document.getElementById('audioPlayer');
+  const downloadLink = document.getElementById('downloadLink');
+  const terminal = document.getElementById('terminal');
 
-const themeBtn = document.getElementById('themeBtn');
-const dropArea = document.getElementById('dropArea');
-const fileInput = document.getElementById('fileInput');
-const progressContainer = document.getElementById('progressContainer');
-const progressBar = document.getElementById('progressBar');
-const audioPlayer = document.getElementById('audioPlayer');
-const downloadLink = document.getElementById('downloadLink');
-const terminal = document.getElementById('terminal');
+  let ffmpeg = null;
+  let engineLoaded = false;
+  let currentFile = null;
 
-let fileHandle = null;
-
-// Terminal logger
-function log(msg){ terminal.textContent += msg + '\n'; terminal.scrollTop = terminal.scrollHeight; }
-
-// Theme
-const savedTheme = document.cookie.split('; ').find(r=>r.startsWith('theme='))?.split('=')[1] || 'dark';
-if(savedTheme==='light') document.body.classList.add('light');
-themeBtn.onclick = ()=>{
-  const light = document.body.classList.toggle('light');
-  document.cookie = `theme=${light?'light':'dark'};path=/;max-age=31536000`;
-  log(`Theme: ${light?'light':'dark'}`);
-}
-
-// Drag & drop
-dropArea.addEventListener('dragover', e=>{ e.preventDefault(); dropArea.classList.add('drag'); });
-dropArea.addEventListener('dragleave', ()=>dropArea.classList.remove('drag'));
-dropArea.addEventListener('drop', e=>{ e.preventDefault(); dropArea.classList.remove('drag'); handleFile(e.dataTransfer.files[0]); });
-dropArea.addEventListener('click', ()=>fileInput.click());
-fileInput.addEventListener('change', e=>handleFile(e.target.files[0]));
-
-function handleFile(file){
-  if(!file) return;
-  fileHandle = file;
-  audioPlayer.style.display='none';
-  downloadLink.style.display='none';
-  progressContainer.style.display='block';
-  progressBar.style.width='0%';
-  log(`Selected: ${file.name} (${Math.round(file.size/1024)} KB)`);
-  extractAudio();
-}
-
-// Extract audio
-async function extractAudio(){
-  if(!fileHandle) return log('No file selected!');
-  log('Loading FFmpeg...');
-  if(!ffmpeg.isLoaded()){ await ffmpeg.load(); log('FFmpeg loaded'); }
-  try{
-    ffmpeg.setProgress(({ratio})=>{ progressBar.style.width=Math.round(ratio*100)+'%'; });
-    ffmpeg.setLogger(({type,message})=>{ log(`[${type}] ${message}`); });
-    const inName = 'input.' + fileHandle.name.split('.').pop();
-    const outName = 'output.mp3';
-    ffmpeg.FS('writeFile', inName, await fetchFile(fileHandle));
-    log('Extracting audio...');
-    await ffmpeg.run('-i', inName, '-vn', '-q:a','0', outName);
-    const data = ffmpeg.FS('readFile', outName);
-    const blob = new Blob([data.buffer], {type:'audio/mp3'});
-    const url = URL.createObjectURL(blob);
-    audioPlayer.src=url; audioPlayer.style.display='block';
-    downloadLink.href=url; downloadLink.style.display='inline-block';
-    progressBar.style.width='100%';
-    log('Extraction finished ✅');
-  }catch(err){
-    log('ERROR: ' + err.message);
+  // tiny logger
+  function log(msg){
+    const t = new Date().toLocaleTimeString();
+    terminal.textContent += `[${t}] ${msg}\n`;
+    terminal.scrollTop = terminal.scrollHeight;
+    console.log(msg);
   }
-}
+  function clearLog(){ terminal.textContent = ''; }
+
+  // cookie helpers for theme
+  function setCookie(name,val,days=365){
+    const expires = new Date(Date.now()+days*864e5).toUTCString();
+    document.cookie = name+'='+encodeURIComponent(val)+';path=/;expires='+expires;
+  }
+  function getCookie(name){
+    return document.cookie.split('; ').reduce((acc,p)=>{ const [k,v]=p.split('='); return k===name?decodeURIComponent(v):acc; }, null);
+  }
+
+  // apply saved theme
+  const savedTheme = getCookie('theme') || 'dark';
+  if(savedTheme === 'light') document.body.classList.add('light');
+  log('Theme: ' + savedTheme);
+
+  themeBtn.addEventListener('click', ()=>{
+    const isLight = document.body.classList.toggle('light');
+    setCookie('theme', isLight ? 'light' : 'dark', 365);
+    log('Theme set to ' + (isLight ? 'light' : 'dark'));
+  });
+
+  // drag and drop
+  dropArea.addEventListener('dragover', e=>{ e.preventDefault(); dropArea.classList.add('drag'); });
+  dropArea.addEventListener('dragleave', ()=>dropArea.classList.remove('drag'));
+  dropArea.addEventListener('drop', e=>{ e.preventDefault(); dropArea.classList.remove('drag'); const f=e.dataTransfer.files[0]; if(f) handleSelectedFile(f); });
+  dropArea.addEventListener('click', ()=>fileInput.click());
+
+  // file input wiring
+  fileInput.addEventListener('change', (e)=>{ const f = e.target.files && e.target.files[0]; if(f) handleSelectedFile(f); });
+
+  function handleSelectedFile(f){
+    currentFile = f;
+    audioPlayer.style.display = 'none';
+    downloadLink.style.display = 'none';
+    progressContainer.style.display = 'none';
+    progressBar.style.width = '0%';
+    log(`Selected: ${f.name} (${Math.round(f.size/1024)} KB)`);
+    extractBtn.disabled = !engineLoaded;
+  }
+
+  // choose button triggers file input
+  chooseBtn.addEventListener('click', ()=> fileInput.click());
+
+  // Load Engine: defensive checks
+  loadBtn.addEventListener('click', async ()=>{
+    if(engineLoaded){ log('Engine already loaded'); return; }
+    try{
+      if(typeof FFmpeg === 'undefined' || !FFmpeg.createFFmpeg){
+        log('ERROR: FFmpeg global not available. Script might have failed to load.');
+        alert('FFmpeg library not available. Open browser console for details.');
+        return;
+      }
+
+      log('Creating FFmpeg instance (may download core.wasm). This can take a few seconds...');
+      const { createFFmpeg, fetchFile } = FFmpeg; // global
+      ffmpeg = createFFmpeg({ log: true, corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.1/ffmpeg-core.js' });
+
+      // show ffmpeg logs in terminal
+      ffmpeg.setLogger(({ type, message }) => {
+        // reduce spam, but show info/warn/error
+        if(type === 'info' || type === 'warn' || type === 'error') log(`[ffmpeg:${type}] ${message}`);
+      });
+
+      await ffmpeg.load();
+      engineLoaded = true;
+      loadBtn.textContent = 'Engine Loaded';
+      loadBtn.disabled = true;
+      extractBtn.disabled = !currentFile;
+      log('FFmpeg engine loaded successfully.');
+    } catch (err){
+      log('FFmpeg load failed: ' + (err && err.message ? err.message : String(err)));
+      alert('Failed to load FFmpeg engine — check terminal and network. If you see a CORS or network error open the DevTools Network tab.');
+    }
+  });
+
+  // Extract audio handler
+  extractBtn.addEventListener('click', async ()=>{
+    if(!engineLoaded){ alert('Please load the engine first'); return; }
+    if(!currentFile){ alert('Please choose or drop a video file first'); return; }
+
+    extractBtn.disabled = true;
+    clearLog();
+    log('Starting extraction...');
+    progressContainer.style.display = 'block';
+    progressBar.style.width = '0%';
+    audioPlayer.style.display = 'none';
+    downloadLink.style.display = 'none';
+
+    try {
+      ffmpeg.setProgress(({ ratio }) => {
+        const pct = Math.round(Math.min(1, Math.max(0, ratio)) * 100);
+        progressBar.style.width = pct + '%';
+      });
+
+      ffmpeg.setLogger(({ type, message }) => {
+        if(type === 'warn' || type === 'error' || type === 'info') log(`[ffmpeg:${type}] ${message}`);
+      });
+
+      const inName = 'input_' + Date.now() + '.' + (currentFile.name.split('.').pop() || 'mp4');
+      const outName = 'out_' + Date.now() + '.mp3';
+
+      try{ ffmpeg.FS('unlink', inName); } catch(e){}
+      try{ ffmpeg.FS('unlink', outName); } catch(e){}
+
+      log('Writing input to virtual FS: ' + inName);
+      const inputData = await FFmpeg.fetchFile(currentFile);
+      ffmpeg.FS('writeFile', inName, inputData);
+
+      log('Running ffmpeg... extracting audio (this may take a while for large files)');
+      // -vn disables video, -q:a 0 best VBR mp3 quality
+      await ffmpeg.run('-i', inName, '-vn', '-q:a', '0', outName);
+
+      log('Reading output...');
+      const outData = ffmpeg.FS('readFile', outName);
+      const blob = new Blob([outData.buffer], { type: 'audio/mp3' });
+      const url = URL.createObjectURL(blob);
+
+      audioPlayer.src = url;
+      audioPlayer.style.display = 'block';
+
+      downloadLink.href = url;
+      downloadLink.download = currentFile.name.replace(/\.[^/.]+$/, '') + '.mp3';
+      downloadLink.style.display = 'inline-block';
+
+      progressBar.style.width = '100%';
+      log('Extraction complete ✅ — play or download the file');
+      // cleanup FS to free memory
+      try{ ffmpeg.FS('unlink', inName); } catch(e){}
+      try{ ffmpeg.FS('unlink', outName); } catch(e){}
+    } catch (err) {
+      log('ERROR during extraction: ' + (err && err.message ? err.message : String(err)));
+      alert('Extraction failed — check terminal for details (DevTools console may hold more info).');
+    } finally {
+      extractBtn.disabled = false;
+    }
+  });
+
+  // initial message
+  log('Ready. Click "Load Engine" to start (FFmpeg core will download).');
+  log('If buttons do not respond: open DevTools Console for errors and ensure the ffmpeg script loaded successfully.');
+})();
 </script>
 
 </body>
-  </html>
+</html>                                                                         </html>
