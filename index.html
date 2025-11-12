@@ -1,259 +1,280 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Vid2Beat – Audio Extractor</title>
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg-dark: #0f0f0f;
-    --text-dark: #00ff88;
-    --btn-dark: #00ff88;
-    --btn-dark-hover: #00cc66;
-    
-    --bg-light: #f5f5f5;
-    --text-light: #007f00;
-    --btn-light: #007f00;
-    --btn-light-hover: #005500;
+  :root{
+    --bg-dark:#0f0f0f; --text-dark:#00ff88; --panel-dark:#111;
+    --bg-light:#f5f5f5; --text-light:#007f00; --panel-light:#eee;
+    --accent-dark:#00ff88; --accent-light:#007f00;
   }
-
-  body {
-    margin: 0;
-    font-family: 'Share Tech Mono', monospace;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    min-height: 100vh;
-    text-align: center;
-    background-color: var(--bg-dark);
-    color: var(--text-dark);
-    transition: all 0.3s;
-    padding: 20px;
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    font-family:'Share Tech Mono', monospace;
+    display:flex;flex-direction:column;align-items:center;
+    justify-content:flex-start;gap:12px;padding:18px;
+    background:var(--bg-dark);color:var(--text-dark);
+    transition:all .25s;
   }
-  body.light {
-    background-color: var(--bg-light);
-    color: var(--text-light);
+  body.light{background:var(--bg-light);color:var(--text-light)}
+  header{display:flex;align-items:center;gap:12px;width:100%;max-width:980px}
+  h1{margin:0;font-size:1.6rem}
+  #controls{display:flex;gap:8px;flex-wrap:wrap}
+  button{
+    padding:8px 14px;border-radius:8px;border:none;cursor:pointer;font-weight:700;
   }
-
-  h1 {
-    font-size: 2.5rem;
-    margin-bottom: 1rem;
+  #loadBtn{background:var(--accent-dark);color:#001}
+  body.light #loadBtn{background:var(--accent-light);color:#fff}
+  #extractBtn{background:#ffd966;color:#000}
+  #themeBtn{background:#888;color:#fff}
+  input[type=file]{display:none}
+  #dropArea{
+    width:80%;max-width:720px;height:120px;border-radius:10px;border:2px dashed rgba(0,255,136,0.18);
+    display:flex;align-items:center;justify-content:center;padding:12px;text-align:center;
+    background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent);
+    transition:all .15s;color:inherit;
   }
-
-  input[type="file"] {
-    margin: 1rem 0;
+  #dropArea.drag{border-color:var(--accent-dark); transform:scale(1.01)}
+  .meta{font-size:0.85rem;opacity:0.9}
+  #progressContainer{width:80%;max-width:720px;height:16px;border-radius:10px;border:1px solid rgba(0,255,136,0.15);overflow:hidden;display:none}
+  #progressBar{height:100%;width:0%;background:var(--accent-dark);transition:width .12s linear}
+  body.light #progressBar{background:var(--accent-light)}
+  #audioPlayer{width:80%;max-width:720px;display:none;margin-top:6px}
+  #downloadLink{display:none;margin-top:6px}
+  #terminal{
+    width:80%;max-width:720px;height:200px;border-radius:8px;padding:8px;background:var(--panel-dark);
+    color:var(--text-dark);overflow:auto;font-size:12px;white-space:pre-wrap;border:1px solid rgba(0,0,0,.2)
   }
-
-  button {
-    border: none;
-    padding: 0.7rem 1.5rem;
-    font-weight: bold;
-    cursor: pointer;
-    border-radius: 10px;
-    transition: 0.3s;
-    margin-top: 0.5rem;
+  body.light #terminal{background:var(--panel-light);color:var(--text-light)}
+  footer{position:relative;margin-top:10px;font-size:0.9rem;opacity:0.9}
+  .muted{opacity:0.75;font-size:0.85rem}
+  /* small screens */
+  @media (max-width:520px){
+    #dropArea{height:100px}
+    #terminal{height:140px}
   }
-
-  #extractBtn {
-    background-color: var(--btn-dark);
-    color: #000;
-  }
-  body.light #extractBtn {
-    background-color: var(--btn-light);
-    color: #fff;
-  }
-  #extractBtn:hover {
-    background-color: var(--btn-dark-hover);
-  }
-  body.light #extractBtn:hover {
-    background-color: var(--btn-light-hover);
-  }
-
-  #themeBtn {
-    background-color: #888;
-    color: #fff;
-  }
-  #themeBtn:hover {
-    background-color: #555;
-  }
-
-  a {
-    display: block;
-    margin-top: 0.5rem;
-    text-decoration: underline;
-  }
-
-  footer {
-    margin-top: 20px;
-    font-size: 0.9rem;
-  }
-
-  #progressContainer {
-    width: 80%;
-    max-width: 400px;
-    height: 20px;
-    border: 1px solid #00ff88;
-    border-radius: 10px;
-    margin-top: 1rem;
-    overflow: hidden;
-    display: none;
-  }
-  #progressBar {
-    height: 100%;
-    width: 0%;
-    background-color: #00ff88;
-    transition: width 0.1s;
-  }
-  body.light #progressContainer { border-color: #007f00; }
-  body.light #progressBar { background-color: #007f00; }
-
-  audio {
-    margin-top: 1rem;
-    outline: none;
-    width: 80%;
-    max-width: 400px;
-  }
-
-  #terminal {
-    width: 80%;
-    max-width: 500px;
-    height: 150px;
-    background-color: #111;
-    color: #0f0;
-    font-family: monospace;
-    font-size: 12px;
-    padding: 10px;
-    overflow-y: scroll;
-    margin-top: 1rem;
-    border-radius: 5px;
-    white-space: pre-wrap;
-  }
-  body.light #terminal { background-color: #ddd; color: #007f00; }
 </style>
 </head>
 <body>
 
-<h1>🎧 Vid2Beat – Audio Extractor</h1>
+<header>
+  <h1>🎧 Vid2Beat – Audio Extractor</h1>
+  <div style="margin-left:auto" class="muted">Made by Aryan</div>
+</header>
 
-<input type="file" id="videoFile" accept="video/*">
-<br>
-<button id="extractBtn">Extract Audio</button>
-<button id="themeBtn">Toggle Dark/Light Theme</button>
-<br>
-
-<div id="progressContainer">
-  <div id="progressBar"></div>
+<div id="controls" style="width:100%;max-width:980px;align-items:center">
+  <button id="loadBtn">Load Engine</button>
+  <label for="fileInput" style="display:inline-block">
+    <button id="chooseBtn">Choose Video</button>
+  </label>
+  <input id="fileInput" type="file" accept="video/*">
+  <button id="extractBtn" disabled>Extract Audio</button>
+  <button id="themeBtn">Toggle Theme</button>
 </div>
 
-<a id="downloadLink" style="display:none;">Download MP3</a>
-<audio id="audioPlayer" controls style="display:none;"></audio>
+<div id="dropArea">Drop a video file here or click <strong>Choose Video</strong></div>
+<div class="meta">Supported: mp4, mkv, mov, webm — extraction happens in-browser (ffmpeg.wasm)</div>
 
-<div id="terminal"></div>
+<div id="progressContainer"><div id="progressBar"></div></div>
 
-<footer>Made by Aryan</footer>
+<a id="downloadLink" href="#" download="output.mp3">Download Extracted MP3</a>
 
+<audio id="audioPlayer" controls></audio>
+
+<div id="terminal" aria-live="polite"></div>
+
+<footer class="muted">Tip: Use the terminal below to see logs & errors</footer>
+
+<!-- ffmpeg.wasm -->
 <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.2/dist/ffmpeg.min.js"></script>
 <script>
-  const { createFFmpeg, fetchFile } = FFmpeg;
-  const ffmpeg = createFFmpeg({ log: true });
-
+(async function(){
+  // elements
+  const loadBtn = document.getElementById('loadBtn');
+  const chooseBtn = document.getElementById('chooseBtn');
+  const fileInput = document.getElementById('fileInput');
   const extractBtn = document.getElementById('extractBtn');
-  const videoFileInput = document.getElementById('videoFile');
-  const downloadLink = document.getElementById('downloadLink');
   const themeBtn = document.getElementById('themeBtn');
+  const dropArea = document.getElementById('dropArea');
   const progressContainer = document.getElementById('progressContainer');
   const progressBar = document.getElementById('progressBar');
   const audioPlayer = document.getElementById('audioPlayer');
+  const downloadLink = document.getElementById('downloadLink');
   const terminal = document.getElementById('terminal');
 
-  let videoFile;
+  // FFmpeg objects
+  let ffmpeg = null;
+  let fileHandle = null;
+  let engineLoaded = false;
 
-  // --- Terminal logging ---
-  function logTerminal(msg) {
-    terminal.textContent += msg + '\n';
+  // helper: log to terminal with timestamp
+  function log(msg){
+    const time = new Date().toLocaleTimeString();
+    terminal.textContent += `[${time}] ${msg}\n`;
     terminal.scrollTop = terminal.scrollHeight;
+    console.log(msg);
+  }
+  function clearLog(){ terminal.textContent = ''; }
+
+  // theme cookie helpers
+  function setCookie(name, value, days=365){
+    const expires = new Date(Date.now() + days*864e5).toUTCString();
+    document.cookie = name+'='+encodeURIComponent(value)+';path=/;expires='+expires;
+  }
+  function getCookie(name){
+    return document.cookie.split('; ').reduce((r,v)=>{const parts=v.split('='); return parts[0]===name?decodeURIComponent(parts[1]):r}, null);
   }
 
-  // --- Theme Handling ---
-  function setTheme(theme) {
-    if(theme === 'light') document.body.classList.add('light');
-    else document.body.classList.remove('light');
-    document.cookie = "theme="+theme+";path=/;max-age=31536000";
-    logTerminal(`Theme set to ${theme}`);
-  }
+  // theme init
+  const savedTheme = getCookie('theme') || 'dark';
+  if(savedTheme==='light') document.body.classList.add('light');
+  log(`Theme: ${savedTheme}`);
 
-  const cookieTheme = document.cookie.split('; ').find(row => row.startsWith('theme='));
-  if(cookieTheme) setTheme(cookieTheme.split('=')[1]);
-  else setTheme('dark');
-
-  themeBtn.addEventListener('click', () => {
-    const newTheme = document.body.classList.contains('light') ? 'dark' : 'light';
-    setTheme(newTheme);
+  themeBtn.addEventListener('click', ()=>{
+    const isLight = document.body.classList.toggle('light');
+    setCookie('theme', isLight ? 'light' : 'dark', 365);
+    log(`Theme set to ${isLight ? 'light' : 'dark'}`);
   });
 
-  videoFileInput.addEventListener('change', (e) => {
-    videoFile = e.target.files[0];
+  // drag & drop
+  dropArea.addEventListener('dragover', (e)=>{ e.preventDefault(); dropArea.classList.add('drag'); });
+  dropArea.addEventListener('dragleave', ()=>dropArea.classList.remove('drag'));
+  dropArea.addEventListener('drop', (e)=>{ e.preventDefault(); dropArea.classList.remove('drag'); handleDroppedFiles(e.dataTransfer.files); });
+
+  function handleDroppedFiles(files){
+    if(!files || files.length===0) return;
+    fileInput.files = files; // set input programmatically
+    onFileSelected(files[0]);
+  }
+
+  // file selection
+  fileInput.addEventListener('change', (e)=> {
+    const f = e.target.files && e.target.files[0];
+    if(f) onFileSelected(f);
+  });
+
+  function onFileSelected(f){
+    fileHandle = f;
     audioPlayer.style.display = 'none';
     downloadLink.style.display = 'none';
     progressContainer.style.display = 'none';
     progressBar.style.width = '0%';
-    logTerminal(`Selected file: ${videoFile.name}`);
+    log(`Selected: ${f.name} (${Math.round(f.size/1024)} KB)`);
+    // if engine loaded, enable extract
+    extractBtn.disabled = !engineLoaded;
+  }
+
+  // Load Engine button
+  loadBtn.addEventListener('click', async ()=>{
+    if(engineLoaded){ log('Engine already loaded.'); return; }
+    try{
+      log('Initializing FFmpeg engine (this may take a few seconds)...');
+      // make sure global FFmpeg exists
+      if(typeof FFmpeg === 'undefined' || !FFmpeg.createFFmpeg){
+        throw new Error('FFmpeg library not found. Check network or CDN availability.');
+      }
+      const { createFFmpeg, fetchFile } = FFmpeg;
+      ffmpeg = createFFmpeg({ log: true });
+
+      // attach logger early so we get loading logs
+      ffmpeg.setLogger(({ type, message }) => {
+        // Filter noise but show warning/error/info
+        log(`[ffmpeg][${type}] ${message}`);
+      });
+
+      await ffmpeg.load(); // downloads core wasm => takes time
+      engineLoaded = true;
+      extractBtn.disabled = !fileHandle; // enable only if file selected
+      log('FFmpeg loaded successfully.');
+      loadBtn.textContent = 'Engine Loaded';
+      loadBtn.disabled = true;
+    } catch (err){
+      log('FFmpeg load error: ' + (err && err.message ? err.message : String(err)));
+      alert('Failed to load FFmpeg engine. See terminal for details.');
+    }
   });
 
-  extractBtn.addEventListener('click', async () => {
-    if (!videoFile) return alert('Please select a video file first!');
+  // extract button
+  extractBtn.addEventListener('click', async ()=>{
+    if(!engineLoaded){ alert('Please click "Load Engine" first'); return; }
+    if(!fileHandle){ alert('Choose or drop a video file first'); return; }
+
     extractBtn.disabled = true;
-    extractBtn.textContent = 'Loading FFmpeg...';
     downloadLink.style.display = 'none';
     audioPlayer.style.display = 'none';
     progressContainer.style.display = 'block';
     progressBar.style.width = '0%';
-    terminal.textContent = '';
+    clearLog(); log('Starting extraction...');
 
     try {
-      if (!ffmpeg.isLoaded()) {
-        logTerminal('Loading FFmpeg...');
-        await ffmpeg.load();
-        logTerminal('FFmpeg loaded successfully.');
-      }
-
+      // set progress and runtime logger
       ffmpeg.setProgress(({ ratio }) => {
-        const percent = Math.min(100, Math.round(ratio * 100));
-        progressBar.style.width = percent + '%';
+        const pct = Math.round(Math.min(1, Math.max(0, ratio)) * 100);
+        progressBar.style.width = pct + '%';
       });
-
       ffmpeg.setLogger(({ type, message }) => {
-        logTerminal(`[${type}] ${message}`);
+        // important messages to terminal
+        log(`[${type}] ${message}`);
       });
 
-      extractBtn.textContent = 'Extracting Audio...';
-      ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(videoFile));
-      await ffmpeg.run('-i', 'input.mp4', '-q:a', '0', '-map', 'a', 'output.mp3');
+      // file names (use unique names to avoid clashes)
+      const inName = 'input_video';
+      const outName = 'extracted_audio.mp3';
 
-      const data = ffmpeg.FS('readFile', 'output.mp3');
-      const audioBlob = new Blob([data.buffer], { type: 'audio/mp3' });
-      const url = URL.createObjectURL(audioBlob);
+      // clear previous files (if any)
+      try { ffmpeg.FS('unlink', inName); } catch(e){/*ignore*/}
+      try { ffmpeg.FS('unlink', outName); } catch(e){/*ignore*/}
 
-      downloadLink.href = url;
-      downloadLink.download = 'output.mp3';
-      downloadLink.style.display = 'block';
-      downloadLink.textContent = 'Download Extracted Audio';
+      // write file
+      log('Writing input file to virtual FS...');
+      const inputData = await FFmpeg.fetchFile(fileHandle);
+      ffmpeg.FS('writeFile', inName, inputData);
+
+      // run extraction - we attempt a robust set of args:
+      log('Running ffmpeg to extract audio (may take some time)...');
+      // -y overwrite if exists, -i input, -vn disable video, -acodec libmp3lame if available otherwise -q:a 0
+      // We keep arguments minimal to increase compatibility:
+      await ffmpeg.run('-y', '-i', inName, '-vn', '-q:a', '0', outName);
+
+      log('Reading output file from virtual FS...');
+      const output = ffmpeg.FS('readFile', outName);
+      const blob = new Blob([output.buffer], { type: 'audio/mp3' });
+      const url = URL.createObjectURL(blob);
 
       audioPlayer.src = url;
       audioPlayer.style.display = 'block';
 
+      downloadLink.href = url;
+      downloadLink.download = 'output.mp3';
+      downloadLink.style.display = 'inline-block';
+      log('Extraction finished — ready to play or download.');
       progressBar.style.width = '100%';
-      logTerminal('Extraction completed successfully!');
+
+      // cleanup FS entries (keep output in memory via blob/url)
+      try { ffmpeg.FS('unlink', inName); } catch(e){}
+      try { ffmpeg.FS('unlink', outName); } catch(e){}
     } catch (err) {
-      logTerminal(`Error: ${err.message}`);
-      alert('Extraction failed! Check terminal for details.');
+      log('ERROR during extraction: ' + (err && err.message ? err.message : String(err)));
+      alert('Extraction failed — check terminal for details.');
     } finally {
       extractBtn.disabled = false;
-      extractBtn.textContent = 'Extract Audio';
     }
   });
-</script>
 
+  // If you want auto-load FFmpeg when user selects file uncomment below:
+  // fileInput.addEventListener('change', ()=>{ if(!engineLoaded) loadBtn.click(); });
+
+  // small UX: clicking dropArea opens file dialog
+  dropArea.addEventListener('click', ()=>fileInput.click());
+
+  // initial hint in terminal
+  log('Ready. Click "Load Engine" to begin (FFmpeg will download its WASM core).');
+  log('After engine loads: choose or drop a video and click "Extract Audio".');
+})();
+</script>
 </body>
   </html>
