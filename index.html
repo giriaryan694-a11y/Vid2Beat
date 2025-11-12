@@ -1,69 +1,57 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Vid2Beat – Audio Extractor</title>
+<title>Vid2Beat – Audio Extractor (robust loader)</title>
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
-  :root{--bg-dark:#0f0f0f;--text-dark:#00ff88;--accent:#00ff88;--bg-light:#f5f5f5;--text-light:#007f00}
-  *{box-sizing:border-box}
-  body{font-family:'Share Tech Mono',monospace;margin:0;padding:18px;background:var(--bg-dark);color:var(--text-dark);display:flex;flex-direction:column;align-items:center;gap:12px}
-  body.light{background:var(--bg-light);color:var(--text-light)}
-  header{width:100%;max-width:980px;display:flex;align-items:center}
-  h1{margin:0;font-size:1.6rem}
-  .muted{margin-left:auto;opacity:.9}
-  #controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-  button{padding:8px 14px;border-radius:8px;border:none;cursor:pointer;font-weight:700}
+  :root{--bg:#0f0f0f;--text:#00ff88;--accent:#00ff88;--light-bg:#f5f5f5;--light-text:#007f00}
+  body{font-family:'Share Tech Mono',monospace;background:var(--bg);color:var(--text);margin:0;padding:18px;display:flex;flex-direction:column;align-items:center;gap:12px}
+  body.light{background:var(--light-bg);color:var(--light-text)}
+  h1{margin:0;font-size:1.4rem}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  button{padding:8px 12px;border-radius:8px;border:none;cursor:pointer;font-weight:700}
   #loadBtn{background:var(--accent);color:#001}
   #chooseBtn{background:#666;color:#fff}
   #extractBtn{background:#ffd966;color:#000}
   #themeBtn{background:#888;color:#fff}
-  #dropArea{width:80%;max-width:720px;height:120px;border:2px dashed rgba(0,255,136,0.18);border-radius:10px;display:flex;align-items:center;justify-content:center;padding:12px;text-align:center;transition:all .12s}
+  #dropArea{width:80%;max-width:760px;height:120px;border-radius:10px;border:2px dashed rgba(0,255,136,0.12);display:flex;align-items:center;justify-content:center;padding:12px;text-align:center;transition:all .12s}
   #dropArea.drag{border-color:var(--accent);transform:scale(1.01)}
-  #progressContainer{width:80%;max-width:720px;height:16px;border-radius:10px;border:1px solid rgba(0,255,136,0.12);overflow:hidden;display:none}
+  #progressContainer{width:80%;max-width:760px;height:16px;border-radius:8px;border:1px solid rgba(0,255,136,.12);overflow:hidden;display:none}
   #progressBar{height:100%;width:0%;background:var(--accent);transition:width .12s linear}
-  audio{width:80%;max-width:720px;display:none;margin-top:6px}
-  #downloadLink{display:none;margin-top:6px}
-  #terminal{width:80%;max-width:720px;height:200px;border-radius:8px;padding:8px;background:#111;color:#0f0;overflow:auto;font-size:12px;white-space:pre-wrap;margin-top:6px}
+  audio{width:80%;max-width:760px;display:none}
+  #downloadLink{display:none}
+  #terminal{width:80%;max-width:760px;height:220px;border-radius:8px;padding:8px;background:#111;color:#0f0;overflow:auto;font-size:12px;white-space:pre-wrap}
   body.light #terminal{background:#eee;color:#007f00}
-  footer{margin-top:10px;font-size:.9rem;opacity:.9}
-  input[type="file"]{display:none}
-  @media (max-width:520px){#dropArea{height:100px}#terminal{height:140px}}
+  footer{opacity:.9}
+  input[type=file]{display:none}
+  @media(max-width:520px){#dropArea{height:100px}#terminal{height:160px}}
 </style>
 </head>
 <body>
-
-<header>
   <h1>🎧 Vid2Beat – Audio Extractor</h1>
-  <div class="muted">Made by Aryan</div>
-</header>
+  <div class="controls">
+    <button id="loadBtn">Load Engine</button>
+    <label><button id="chooseBtn">Choose Video</button></label>
+    <input id="fileInput" type="file" accept="video/*">
+    <button id="extractBtn" disabled>Extract Audio</button>
+    <button id="themeBtn">Toggle Theme</button>
+  </div>
 
-<div id="controls">
-  <button id="loadBtn">Load Engine</button>
-  <label><button id="chooseBtn">Choose Video</button></label>
-  <input id="fileInput" type="file" accept="video/*">
-  <button id="extractBtn" disabled>Extract Audio</button>
-  <button id="themeBtn">Toggle Theme</button>
-</div>
+  <div id="dropArea">Drop a video file here or click <strong>Choose Video</strong></div>
+  <div class="meta">Supports common formats (mp4, mkv, mov, webm). Extraction runs in the browser.</div>
 
-<div id="dropArea">Drop a video file here or click <strong>Choose Video</strong></div>
-<div class="meta">Supported: mp4, mkv, mov, webm — extraction in-browser</div>
+  <div id="progressContainer"><div id="progressBar"></div></div>
+  <a id="downloadLink" href="#" download="output.mp3">Download MP3</a>
+  <audio id="audioPlayer" controls></audio>
 
-<div id="progressContainer"><div id="progressBar"></div></div>
-
-<a id="downloadLink" href="#" download="output.mp3">Download Extracted MP3</a>
-<audio id="audioPlayer" controls></audio>
-
-<div id="terminal" aria-live="polite"></div>
-<footer class="muted">Tip: check the terminal for load/progress/errors</footer>
-
-<!-- non-module ffmpeg build (global `FFmpeg`) -->
-<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.2/dist/ffmpeg.min.js" crossorigin="anonymous"></script>
+  <div id="terminal" aria-live="polite"></div>
+  <footer>Made by Aryan</footer>
 
 <script>
-(function(){
-  // elements
+(async function(){
+  // UI elements
   const loadBtn = document.getElementById('loadBtn');
   const chooseBtn = document.getElementById('chooseBtn');
   const fileInput = document.getElementById('fileInput');
@@ -76,11 +64,13 @@
   const downloadLink = document.getElementById('downloadLink');
   const terminal = document.getElementById('terminal');
 
-  let ffmpeg = null;
+  // state
+  let ffmpegModule = null; // will contain {createFFmpeg, fetchFile}
+  let ffmpeg = null;       // ffmpeg instance
   let engineLoaded = false;
-  let currentFile = null;
+  let selectedFile = null;
 
-  // tiny logger
+  // helper log
   function log(msg){
     const t = new Date().toLocaleTimeString();
     terminal.textContent += `[${t}] ${msg}\n`;
@@ -89,19 +79,12 @@
   }
   function clearLog(){ terminal.textContent = ''; }
 
-  // cookie helpers for theme
-  function setCookie(name,val,days=365){
-    const expires = new Date(Date.now()+days*864e5).toUTCString();
-    document.cookie = name+'='+encodeURIComponent(val)+';path=/;expires='+expires;
-  }
-  function getCookie(name){
-    return document.cookie.split('; ').reduce((acc,p)=>{ const [k,v]=p.split('='); return k===name?decodeURIComponent(v):acc; }, null);
-  }
-
-  // apply saved theme
+  // theme cookie
+  function setCookie(n,v,days=365){ const e = new Date(Date.now()+days*864e5).toUTCString(); document.cookie = `${n}=${encodeURIComponent(v)};path=/;expires=${e}`; }
+  function getCookie(n){ return document.cookie.split('; ').reduce((a,c)=>{const p=c.split('='); return p[0]===n?decodeURIComponent(p[1]):a}, null); }
   const savedTheme = getCookie('theme') || 'dark';
   if(savedTheme === 'light') document.body.classList.add('light');
-  log('Theme: ' + savedTheme);
+  log(`Theme: ${savedTheme}`);
 
   themeBtn.addEventListener('click', ()=>{
     const isLight = document.body.classList.toggle('light');
@@ -109,127 +92,235 @@
     log('Theme set to ' + (isLight ? 'light' : 'dark'));
   });
 
-  // drag and drop
+  // drag & drop + file input
   dropArea.addEventListener('dragover', e=>{ e.preventDefault(); dropArea.classList.add('drag'); });
   dropArea.addEventListener('dragleave', ()=>dropArea.classList.remove('drag'));
-  dropArea.addEventListener('drop', e=>{ e.preventDefault(); dropArea.classList.remove('drag'); const f=e.dataTransfer.files[0]; if(f) handleSelectedFile(f); });
+  dropArea.addEventListener('drop', e=>{ e.preventDefault(); dropArea.classList.remove('drag'); const f=e.dataTransfer.files && e.dataTransfer.files[0]; if(f) onFileSelected(f); });
   dropArea.addEventListener('click', ()=>fileInput.click());
+  fileInput.addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if(f) onFileSelected(f); });
+  chooseBtn.addEventListener('click', ()=>fileInput.click());
 
-  // file input wiring
-  fileInput.addEventListener('change', (e)=>{ const f = e.target.files && e.target.files[0]; if(f) handleSelectedFile(f); });
-
-  function handleSelectedFile(f){
-    currentFile = f;
+  function onFileSelected(f){
+    selectedFile = f;
     audioPlayer.style.display = 'none';
     downloadLink.style.display = 'none';
     progressContainer.style.display = 'none';
     progressBar.style.width = '0%';
-    log(`Selected: ${f.name} (${Math.round(f.size/1024)} KB)`);
+    log(`Selected file: ${f.name} (${Math.round(f.size/1024)} KB)`);
     extractBtn.disabled = !engineLoaded;
   }
 
-  // choose button triggers file input
-  chooseBtn.addEventListener('click', ()=> fileInput.click());
+  // Detect if page is opened via file:// -> modules and wasm often blocked
+  const isFileProtocol = location.protocol === 'file:';
+  if(isFileProtocol){
+    log('Warning: Running from file:// may block wasm/module downloads. Use GitHub Pages or a local server (e.g. `npx http-server`).');
+  }
 
-  // Load Engine: defensive checks
-  loadBtn.addEventListener('click', async ()=>{
-    if(engineLoaded){ log('Engine already loaded'); return; }
+  // Loader: try multiple module CDNs then non-module fallback
+  async function tryModuleImport(url){
     try{
-      if(typeof FFmpeg === 'undefined' || !FFmpeg.createFFmpeg){
-        log('ERROR: FFmpeg global not available. Script might have failed to load.');
-        alert('FFmpeg library not available. Open browser console for details.');
-        return;
+      log(`Attempting module import: ${url}`);
+      const mod = await import(url);
+      if(mod && mod.createFFmpeg && mod.fetchFile){
+        log('Module import successful.');
+        return { createFFmpeg: mod.createFFmpeg, fetchFile: mod.fetchFile };
+      } else {
+        log('Module imported but expected exports missing.');
       }
-
-      log('Creating FFmpeg instance (may download core.wasm). This can take a few seconds...');
-      const { createFFmpeg, fetchFile } = FFmpeg; // global
-      ffmpeg = createFFmpeg({ log: true, corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.1/ffmpeg-core.js' });
-
-      // show ffmpeg logs in terminal
-      ffmpeg.setLogger(({ type, message }) => {
-        // reduce spam, but show info/warn/error
-        if(type === 'info' || type === 'warn' || type === 'error') log(`[ffmpeg:${type}] ${message}`);
-      });
-
-      await ffmpeg.load();
-      engineLoaded = true;
-      loadBtn.textContent = 'Engine Loaded';
-      loadBtn.disabled = true;
-      extractBtn.disabled = !currentFile;
-      log('FFmpeg engine loaded successfully.');
-    } catch (err){
-      log('FFmpeg load failed: ' + (err && err.message ? err.message : String(err)));
-      alert('Failed to load FFmpeg engine — check terminal and network. If you see a CORS or network error open the DevTools Network tab.');
+    }catch(err){
+      log('Module import failed: ' + (err && err.message ? err.message : String(err)));
     }
+    return null;
+  }
+
+  async function tryGlobalScript(url){
+    return new Promise((resolve)=>{
+      log(`Attempting non-module script load: ${url}`);
+      const s = document.createElement('script');
+      s.src = url;
+      s.crossOrigin = 'anonymous';
+      s.onload = ()=> {
+        log('Script loaded. Checking global FFmpeg...');
+        if(window.FFmpeg && window.FFmpeg.createFFmpeg && window.FFmpeg.fetchFile){
+          log('Global FFmpeg available.');
+          resolve({ createFFmpeg: window.FFmpeg.createFFmpeg, fetchFile: window.FFmpeg.fetchFile });
+        } else {
+          log('Global FFmpeg not available after script load.');
+          resolve(null);
+        }
+      };
+      s.onerror = (e)=> { log('Script load error: ' + (e?.message || 'network/CORS error')); resolve(null); };
+      document.head.appendChild(s);
+      // add a timeout: if neither onload nor onerror triggered in 12s, assume failure
+      setTimeout(()=> resolve(null), 12000);
+    });
+  }
+
+  // Candidate sources (module first)
+  const moduleCandidates = [
+    'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.2/dist/ffmpeg.min.mjs',
+    'https://unpkg.com/@ffmpeg/ffmpeg@0.12.2/dist/ffmpeg.min.mjs'
+  ];
+  const scriptCandidates = [
+    'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.2/dist/ffmpeg.min.js',
+    'https://unpkg.com/@ffmpeg/ffmpeg@0.12.2/dist/ffmpeg.min.js'
+  ];
+
+  // corePaths for createFFmpeg core files (tried in order)
+  const coreCandidates = [
+    'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.1/ffmpeg-core.js',
+    'https://unpkg.com/@ffmpeg/core@0.11.1/dist/ffmpeg-core.js' // sometimes different path
+  ];
+
+  async function autoLocateFFmpeg(){
+    // try module imports
+    for(const url of moduleCandidates){
+      const mod = await tryModuleImport(url);
+      if(mod) return { source: 'module', mod };
+    }
+    // try non-module script
+    for(const url of scriptCandidates){
+      const mod = await tryGlobalScript(url);
+      if(mod) return { source: 'script', mod };
+    }
+    return null;
+  }
+
+  // Load Engine click
+  loadBtn.addEventListener('click', async ()=>{
+    loadBtn.disabled = true;
+    clearLog();
+    log('Auto-locating ffmpeg package (trying multiple CDNs). This can take a few seconds...');
+    if(isFileProtocol) log('Note: file:// often blocks WASM downloads — use GitHub Pages or a local HTTP server.');
+
+    const located = await autoLocateFFmpeg();
+    if(!located){
+      log('Failed to load ffmpeg package from CDN module/script fallbacks.');
+      log('Possible causes: network blocked, CORS, CSP, or offline environment. See browser Console (DevTools) for network errors.');
+      alert('Could not load ffmpeg library from CDNs. See terminal for details.');
+      loadBtn.disabled = false;
+      return;
+    }
+
+    ffmpegModule = located.mod;
+    log('ffmpeg package found (' + located.source + '). Preparing instance with core file fallbacks...');
+
+    // try corePaths
+    for(const corePath of coreCandidates){
+      try{
+        log('Attempting to initialize ffmpeg with corePath: ' + corePath);
+        const { createFFmpeg } = ffmpegModule;
+        ffmpeg = createFFmpeg({ log: true, corePath }); // corePath should point to ffmpeg-core.js
+        // attach logger so we can surface messages during load
+        ffmpeg.setLogger(({ type, message }) => {
+          if(type==='warn' || type==='error' || type==='info') log(`[ffmpeg:${type}] ${message}`);
+        });
+        await ffmpeg.load(); // will download core (and wasm) relative to corePath
+        engineLoaded = true;
+        log('FFmpeg loaded successfully using corePath: ' + corePath);
+        break;
+      }catch(err){
+        log('Failed with corePath: ' + corePath + ' — ' + (err && err.message ? err.message : String(err)));
+        // try next corePath
+        ffmpeg = null;
+      }
+    }
+
+    if(!engineLoaded){
+      log('All corePath attempts failed. You can host ffmpeg-core.js/.wasm in your repo and set corePath to that location.');
+      alert('Failed to initialize FFmpeg core. Check terminal and DevTools Network tab for more info.');
+      loadBtn.disabled = false;
+      return;
+    }
+
+    // attach fetchFile helper
+    const fetchFile = ffmpegModule.fetchFile;
+    // set instance-level logger & progress already set during creation
+    loadBtn.textContent = 'Engine Loaded';
+    loadBtn.disabled = true;
+    extractBtn.disabled = !selectedFile;
+    log('Engine ready. Choose or drop a file and press Extract Audio.');
   });
 
-  // Extract audio handler
+  // Extract handler (works once ffmpeg is ready)
   extractBtn.addEventListener('click', async ()=>{
-    if(!engineLoaded){ alert('Please load the engine first'); return; }
-    if(!currentFile){ alert('Please choose or drop a video file first'); return; }
+    if(!engineLoaded || !ffmpeg){ alert('Engine not loaded — click Load Engine'); return; }
+    if(!selectedFile){ alert('Choose or drop a video first'); return; }
 
     extractBtn.disabled = true;
     clearLog();
-    log('Starting extraction...');
     progressContainer.style.display = 'block';
     progressBar.style.width = '0%';
-    audioPlayer.style.display = 'none';
-    downloadLink.style.display = 'none';
+    audioPlayer.style.display='none';
+    downloadLink.style.display='none';
+    log('Starting extraction...');
 
-    try {
+    try{
       ffmpeg.setProgress(({ ratio }) => {
-        const pct = Math.round(Math.min(1, Math.max(0, ratio)) * 100);
+        const pct = Math.round(Math.min(1,Math.max(0,ratio))*100);
         progressBar.style.width = pct + '%';
       });
 
-      ffmpeg.setLogger(({ type, message }) => {
+      ffmpeg.setLogger(({type, message}) => {
         if(type === 'warn' || type === 'error' || type === 'info') log(`[ffmpeg:${type}] ${message}`);
       });
 
-      const inName = 'input_' + Date.now() + '.' + (currentFile.name.split('.').pop() || 'mp4');
-      const outName = 'out_' + Date.now() + '.mp3';
+      const ext = (selectedFile.name.split('.').pop() || 'mp4').replace(/[^a-z0-9]/gi,'').toLowerCase();
+      const inName = `input_${Date.now()}.${ext}`;
+      const outName = `output_${Date.now()}.mp3`;
 
-      try{ ffmpeg.FS('unlink', inName); } catch(e){}
-      try{ ffmpeg.FS('unlink', outName); } catch(e){}
-
-      log('Writing input to virtual FS: ' + inName);
-      const inputData = await FFmpeg.fetchFile(currentFile);
+      log('Writing file to virtual FS: ' + inName);
+      // fetchFile may be in module or global space; prefer module fetch if available
+      const fetchFn = ffmpegModule.fetchFile || (window.FFmpeg && window.FFmpeg.fetchFile) || null;
+      if(!fetchFn) throw new Error('fetchFile helper not available');
+      const inputData = await fetchFn(selectedFile);
       ffmpeg.FS('writeFile', inName, inputData);
 
-      log('Running ffmpeg... extracting audio (this may take a while for large files)');
-      // -vn disables video, -q:a 0 best VBR mp3 quality
+      log('Running ffmpeg to extract audio...');
       await ffmpeg.run('-i', inName, '-vn', '-q:a', '0', outName);
 
-      log('Reading output...');
-      const outData = ffmpeg.FS('readFile', outName);
-      const blob = new Blob([outData.buffer], { type: 'audio/mp3' });
+      log('Reading output from virtual FS...');
+      const out = ffmpeg.FS('readFile', outName);
+      const blob = new Blob([out.buffer], { type: 'audio/mp3' });
       const url = URL.createObjectURL(blob);
 
       audioPlayer.src = url;
       audioPlayer.style.display = 'block';
 
       downloadLink.href = url;
-      downloadLink.download = currentFile.name.replace(/\.[^/.]+$/, '') + '.mp3';
+      downloadLink.download = selectedFile.name.replace(/\.[^/.]+$/,'') + '.mp3';
       downloadLink.style.display = 'inline-block';
 
       progressBar.style.width = '100%';
-      log('Extraction complete ✅ — play or download the file');
-      // cleanup FS to free memory
-      try{ ffmpeg.FS('unlink', inName); } catch(e){}
-      try{ ffmpeg.FS('unlink', outName); } catch(e){}
-    } catch (err) {
-      log('ERROR during extraction: ' + (err && err.message ? err.message : String(err)));
-      alert('Extraction failed — check terminal for details (DevTools console may hold more info).');
+      log('Extraction finished — preview below or download.');
+      // cleanup virtual FS entries to free memory
+      try { ffmpeg.FS('unlink', inName); } catch(e){}
+      try { ffmpeg.FS('unlink', outName); } catch(e){}
+    }catch(err){
+      log('Extraction error: ' + (err && err.message ? err.message : String(err)));
+      alert('Extraction failed — check terminal and DevTools console for network/CORS details.');
     } finally {
       extractBtn.disabled = false;
     }
   });
 
+  // file selection wiring
+  fileInput.addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if(f) onFileSelected(f); });
+  function onFileSelected(f){
+    selectedFile = f;
+    audioPlayer.style.display = 'none';
+    downloadLink.style.display = 'none';
+    progressContainer.style.display = 'none';
+    progressBar.style.width = '0%';
+    log(`Selected: ${f.name}`);
+    extractBtn.disabled = !engineLoaded;
+  }
+
+  // If user drags/drops a file into input through OS, set it
   // initial message
-  log('Ready. Click "Load Engine" to start (FFmpeg core will download).');
-  log('If buttons do not respond: open DevTools Console for errors and ensure the ffmpeg script loaded successfully.');
+  log('Ready. Click "Load Engine" to start (ffmpeg core will be downloaded).');
+  log('If you see "FFmpeg global not available" in the terminal: the ffmpeg script did not load from CDN. Open DevTools → Network to find which resource failed (CORS/404).');
 })();
 </script>
-
 </body>
-</html>                                                                         </html>
+  </html>
